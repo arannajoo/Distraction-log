@@ -1,0 +1,17 @@
+{
+  "id": "switch-log",
+  "name": "전환 기록기",
+  "short_name": "전환기록",
+  "description": "작업 중 주의 전환을 관찰·기록하는 개인용 도구",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#17113a",
+  "theme_color": "#17113a",
+  "lang": "ko",
+  "icons": [
+    {"src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+    {"src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
+    {"src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+  ]
+}

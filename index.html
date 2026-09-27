@@ -1,0 +1,1094 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>전환 기록기</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#17113a">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="전환기록">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Do+Hyeon&family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+/* ===== 테마 토큰 ===== */
+:root{
+  --bg:#e8e4f3; --panel:#ffffff; --ink:#1d1640; --muted:#5d5690; --line:#1d1640; --shadow:#1d1640;
+  --pink:#d6246e; --cyan:#0b8e99; --yellow:#b07d00; --yellow-bg:#ffe07a; --on-accent:#ffffff;
+  --scan:0;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#17113a; --panel:#221a52; --ink:#f4eedc; --muted:#a9a2d0; --line:#5a4fb0; --shadow:#0a0722;
+    --pink:#ff5fa8; --cyan:#45e3ee; --yellow:#ffd23f; --yellow-bg:#ffd23f; --on-accent:#17113a;
+    --scan:1;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#17113a; --panel:#221a52; --ink:#f4eedc; --muted:#a9a2d0; --line:#5a4fb0; --shadow:#0a0722;
+  --pink:#ff5fa8; --cyan:#45e3ee; --yellow:#ffd23f; --yellow-bg:#ffd23f; --on-accent:#17113a;
+  --scan:1;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px);height:100%}
+body{
+  margin:0;background:var(--bg);color:var(--ink);
+  font-family:"Do Hyeon","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  font-size:18px;line-height:1.4;-webkit-tap-highlight-color:transparent;
+}
+body::after{ /* 은은한 CRT 주사선 */
+  content:"";position:fixed;inset:0;pointer-events:none;z-index:50;
+  background:repeating-linear-gradient(to bottom,rgba(0,0,0,.18) 0 1px,transparent 1px 3px);
+  opacity:calc(var(--scan) * .5);
+}
+.px{font-family:"Press Start 2P",ui-monospace,monospace;letter-spacing:0}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px dashed var(--pink);outline-offset:2px}
+
+/* ===== 헤더 ===== */
+header{
+  position:sticky;top:env(safe-area-inset-top,0px);z-index:20;
+  background:var(--bg);border-bottom:3px solid var(--line);
+  padding:10px 16px;display:flex;align-items:center;justify-content:space-between;gap:8px;
+}
+header h1{margin:0;font-size:13px;color:var(--pink);text-shadow:2px 2px 0 var(--shadow)}
+header .clock{font-size:10px;color:var(--muted)}
+
+main{max-width:640px;margin:0 auto;padding:16px 14px 180px}
+
+/* ===== 패널 ===== */
+.sec{
+  background:var(--panel);border:3px solid var(--line);box-shadow:4px 4px 0 var(--shadow);
+  padding:12px 12px 14px;margin:0 0 18px;
+}
+.sec > h2{margin:0 0 10px;font-size:19px;font-weight:400;display:flex;align-items:baseline;gap:8px}
+.sec > h2 .n{font-size:10px;color:var(--cyan)}
+.hint{color:var(--muted);font-size:15px;margin:4px 0 8px}
+.opt{color:var(--muted);font-size:14px;font-weight:400}
+
+input[type=text],input[type=number],input[type=date],input[type=datetime-local],textarea,select{
+  width:100%;background:var(--bg);border:3px solid var(--line);padding:10px;font-size:18px;border-radius:0;
+}
+textarea{min-height:64px;resize:vertical}
+.row{display:flex;gap:8px;align-items:center}
+.row > .grow{flex:1;min-width:0}
+.mins{width:92px !important;text-align:center}
+
+/* ===== 버튼류 ===== */
+.grid{display:grid;gap:8px}
+.g3{grid-template-columns:repeat(3,1fr)}
+.g2{grid-template-columns:repeat(2,1fr)}
+.g4{grid-template-columns:repeat(4,1fr)}
+.chip{
+  background:var(--bg);border:3px solid var(--line);box-shadow:3px 3px 0 var(--shadow);
+  padding:10px 6px;min-height:52px;text-align:center;font-size:17px;line-height:1.15;
+  transition:transform .05s;
+}
+.chip:active{transform:translate(2px,2px);box-shadow:1px 1px 0 var(--shadow)}
+.chip.on{background:var(--cyan);color:var(--on-accent);transform:translate(2px,2px);box-shadow:1px 1px 0 var(--shadow)}
+.chip small{display:block;font-size:13px;opacity:.8;margin-top:3px}
+.chip .code{display:block;font-family:"Press Start 2P",monospace;font-size:14px;margin-bottom:5px}
+.chip.aha{border-color:var(--yellow)}
+.chip.aha .code{color:var(--yellow)}
+.chip.aha.on{background:var(--yellow-bg);color:#1d1640;border-color:var(--line)}
+.chip.aha.on .code{color:#1d1640}
+.chip.left{text-align:left;padding:10px 12px}
+.tiny{background:none;border:0;color:var(--cyan);font-size:15px;padding:4px 0;text-decoration:underline}
+.recent{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.recent button{background:none;border:2px dashed var(--muted);padding:4px 10px;font-size:15px;color:var(--muted)}
+.defs{font-size:15px;color:var(--muted);margin:8px 0 0;padding:0;list-style:none}
+.defs li{padding:3px 0}
+.defs b{font-family:"Press Start 2P",monospace;font-size:10px;color:var(--ink);margin-right:6px}
+.warnline{color:var(--pink);font-size:15px;min-height:1em;margin-top:6px}
+
+.rating{margin:0 0 12px}
+.rating:last-child{margin:0}
+.rating .lbl{font-size:16px;margin-bottom:6px}
+.rating .chip{min-height:46px;font-family:"Press Start 2P",monospace;font-size:14px}
+
+/* 아하 블록 */
+.ahabox{border-color:var(--yellow);box-shadow:4px 4px 0 var(--yellow)}
+.ahabox > h2{color:var(--yellow)}
+.subq{margin:12px 0 6px;font-size:17px}
+.subq:first-of-type{margin-top:0}
+
+/* 저장 버튼 */
+.savebar{
+  position:fixed;left:0;right:0;z-index:25;
+  bottom:calc(62px + env(safe-area-inset-bottom,0px));
+  padding:10px 14px;display:flex;justify-content:center;pointer-events:none;
+}
+.savebar button{
+  pointer-events:auto;width:100%;max-width:612px;
+  background:var(--pink);color:#fff;border:3px solid var(--line);box-shadow:5px 5px 0 var(--shadow);
+  padding:16px;font-family:"Press Start 2P",monospace;font-size:14px;
+}
+.savebar button:active{transform:translate(3px,3px);box-shadow:2px 2px 0 var(--shadow)}
+.savebar button .ko{font-family:"Do Hyeon",sans-serif;font-size:20px;margin-left:8px}
+
+/* 하단 탭 */
+nav{
+  position:fixed;left:0;right:0;bottom:0;z-index:30;
+  background:var(--panel);border-top:3px solid var(--line);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  display:grid;grid-template-columns:repeat(4,1fr);
+}
+nav button{background:none;border:0;padding:10px 0 12px;font-size:16px;color:var(--muted)}
+nav button .ic{display:block;font-family:"Press Start 2P",monospace;font-size:11px;margin-bottom:4px}
+nav button.on{color:var(--pink)}
+
+/* 토스트 */
+.toast{
+  position:fixed;left:50%;top:calc(70px + env(safe-area-inset-top,0px));z-index:60;
+  transform:translateX(-50%);background:var(--yellow-bg);color:#1d1640;border:3px solid #1d1640;
+  box-shadow:4px 4px 0 #1d1640;padding:10px 16px;font-size:18px;display:none;
+}
+.toast.show{display:block}
+
+/* 목록 */
+.filters{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.filters select,.filters input{font-size:16px;padding:8px}
+.item{
+  display:block;width:100%;text-align:left;background:var(--panel);
+  border:3px solid var(--line);box-shadow:3px 3px 0 var(--shadow);padding:10px 12px;margin:0 0 12px;
+}
+.item.isaha{border-left:10px solid var(--yellow)}
+.item .top{display:flex;justify-content:space-between;gap:8px;font-size:15px;color:var(--muted)}
+.item .task{font-size:19px;margin:4px 0}
+.item .th{color:var(--muted);font-size:16px;margin-top:4px}
+.tag{display:inline-block;font-family:"Press Start 2P",monospace;font-size:10px;padding:4px 5px;border:2px solid var(--line);margin:2px 3px 2px 0}
+.tag.I{background:var(--yellow-bg);color:#1d1640}
+.daylabel{font-family:"Press Start 2P",monospace;font-size:10px;color:var(--cyan);margin:18px 0 8px}
+
+/* 분석 */
+.big{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;text-align:center}
+.big div{border:3px solid var(--line);padding:10px 4px;background:var(--bg)}
+.big b{display:block;font-family:"Press Start 2P",monospace;font-size:16px;margin-bottom:6px;color:var(--pink)}
+.big span{font-size:14px;color:var(--muted)}
+.bars{display:grid;gap:6px}
+.bar{display:grid;grid-template-columns:7.5em 1fr 2.6em;gap:8px;align-items:center;font-size:15px}
+.bar .lab{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bar .track{height:16px;background:var(--bg);border:2px solid var(--line)}
+.bar .fill{height:100%;background:var(--cyan)}
+.bar .fill.I{background:var(--yellow)}
+.bar .num{font-family:"Press Start 2P",monospace;font-size:10px;text-align:right}
+.tbl-wrap{overflow-x:auto}
+table{border-collapse:collapse;font-size:15px;min-width:100%}
+th,td{border:2px solid var(--line);padding:5px 6px;text-align:center}
+th{font-weight:400;color:var(--muted)}
+td.t{text-align:left;white-space:nowrap}
+td.hot{background:var(--cyan);color:var(--on-accent)}
+.empty{text-align:center;padding:40px 10px;color:var(--muted)}
+.empty .px{display:block;font-size:12px;color:var(--pink);margin-bottom:14px}
+.btn{
+  width:100%;background:var(--bg);border:3px solid var(--line);box-shadow:3px 3px 0 var(--shadow);
+  padding:13px;font-size:18px;margin:0 0 10px;
+}
+.btn.danger{color:var(--pink);border-color:var(--pink)}
+.btn.armed{background:var(--pink);color:#fff}
+.note{font-size:15px;color:var(--muted)}
+.modal{position:fixed;inset:0;background:rgba(10,7,34,.7);z-index:70;display:none;align-items:center;justify-content:center;padding:20px}
+.modal.show{display:flex}
+.modal .sec{width:100%;max-width:560px}
+.modal textarea{min-height:220px;font-size:13px;font-family:ui-monospace,monospace}
+.hide{display:none !important}
+@media (prefers-reduced-motion: reduce){.chip,.savebar button{transition:none}}
+/* ===== v2: 세션 화면 ===== */
+.startbox .row{align-items:stretch}
+.startbtn{
+  background:var(--pink);color:#fff;border:3px solid var(--line);box-shadow:4px 4px 0 var(--shadow);
+  padding:0 16px;font-size:20px;white-space:nowrap;
+}
+.startbtn:active{transform:translate(3px,3px);box-shadow:1px 1px 0 var(--shadow)}
+.activecard{text-align:center;padding:26px 14px 24px}
+.activecard .st{font-family:"Press Start 2P",monospace;font-size:10px;color:var(--cyan);margin-bottom:14px}
+.activecard .tn{font-size:28px;line-height:1.25;word-break:keep-all;margin-bottom:12px}
+.activecard .meta{color:var(--muted);font-size:17px}
+.bigbtn{
+  display:block;width:100%;background:var(--panel);border:3px solid var(--line);box-shadow:4px 4px 0 var(--shadow);
+  padding:20px 12px;font-size:22px;margin:0 0 14px;
+}
+.bigbtn:active{transform:translate(3px,3px);box-shadow:1px 1px 0 var(--shadow)}
+.bigbtn.primary{background:var(--pink);color:#fff}
+.center{text-align:center}
+.lastline{color:var(--muted);font-size:16px;margin:0 0 10px}
+.restart{background:none;border:2px solid var(--cyan);color:var(--cyan);padding:8px 12px;font-size:16px}
+.pending{display:block;width:100%;text-align:left;background:none;border:2px dashed var(--yellow);color:var(--ink);padding:10px 12px;font-size:16px;margin:0 0 18px}
+.summary{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:12px;text-align:center}
+.summary div{border:2px solid var(--line);padding:8px 2px;background:var(--bg)}
+.summary span{display:block;font-size:13px;color:var(--muted)}
+.summary b{font-family:"Press Start 2P",monospace;font-size:12px;font-weight:400}
+.summary .foc b{color:var(--pink)}
+.customsw{margin-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:8px;align-items:center}
+.customsw label{font-size:15px;color:var(--muted)}
+.sessrow{border:2px dashed var(--line);padding:8px 12px;margin:0 0 12px;font-size:16px;color:var(--muted)}
+.tag.wait{border-style:dashed;color:var(--yellow)}
+.bar.wide{grid-template-columns:7.5em 1fr 4em}
+.clampnote{font-size:14px;color:var(--pink);margin-top:6px;min-height:1em}
+</style>
+</head>
+<body>
+
+<header>
+  <h1 class="px">SWITCH LOG</h1>
+  <span class="clock px" id="clock"></span>
+</header>
+
+<main>
+  <section id="view-log"></section>
+  <section id="view-list" class="hide"></section>
+  <section id="view-stats" class="hide"></section>
+  <section id="view-set" class="hide"></section>
+</main>
+
+<div class="savebar hide" id="savebar"><button id="saveBtn"><span>SAVE</span><span class="ko">기록 저장</span></button></div>
+
+<nav>
+  <button data-view="log" class="on"><span class="ic">▶</span>작업</button>
+  <button data-view="list"><span class="ic">≡</span>목록</button>
+  <button data-view="stats"><span class="ic">▮▮</span>분석</button>
+  <button data-view="set"><span class="ic">⚙</span>데이터</button>
+</nav>
+
+<div class="toast" id="toast"></div>
+<div class="modal" id="modal"><div class="sec">
+  <h2 id="modalTitle">복사해서 저장하세요</h2>
+  <p class="note">이 화면에서는 파일 저장을 쓸 수 없어요. 아래 내용을 전체 선택해 복사한 뒤 파일로 저장하세요.</p>
+  <textarea id="modalText" readonly></textarea>
+  <button class="btn" id="modalClose" style="margin-top:10px">닫기</button>
+</div></div>
+
+<script>
+/* =========================================================
+   CONFIG — 카테고리는 여기서만 수정하면 됩니다.
+   code 값은 저장 데이터에 들어가므로 기존 code는 바꾸지 말고
+   label/desc만 고치거나 새 항목을 추가하세요.
+   ========================================================= */
+const CONFIG = {
+  triggers: [
+    {code:"B", label:"지루함",        desc:"지루하거나 단조로움"},
+    {code:"D", label:"어려움",        desc:"인지적 노력이 많이 듦"},
+    {code:"A", label:"모호함",        desc:"다음에 뭘 할지 불분명"},
+    {code:"F", label:"피로",          desc:"피곤함, 졸림"},
+    {code:"E", label:"정서적 불편",   desc:"불안, 좌절, 압박, 짜증"},
+    {code:"N", label:"외부 자극",     desc:"알림, 보이는 폰, 소리 등"},
+    {code:"R", label:"자극 추구",     desc:"더 재밌고 자극적인 것이 당김"},
+    {code:"I", label:"아하!",         desc:"아이디어가 떠올라서 전환"},
+    {code:"C", label:"곁가지 호기심", desc:"목표에 필요 없는 흥미로운 곁질문을 파고들고 싶음. 예: “이 기능 넣을 때 Claude가 코드를 정확히 어떻게 바꿨을까?”"},
+    {code:"S", label:"공유 충동",     desc:"지금 겪거나 알게 된 것을 누군가에게 말하고, 보내고, 보여주고 싶음"},
+    {code:"W", label:"압도감",        desc:"해야 할·배울 게 너무 많아 부담에 압도됨"},
+    {code:"O", label:"기타",          desc:"위에 없음"}
+  ],
+  styles: [
+    {code:"auto",       label:"자동",   desc:"전환한 뒤에야 알아챔"},
+    {code:"semi",       label:"반자동", desc:"충동이 들고 거의 바로 행동"},
+    {code:"deliberate", label:"의도적", desc:"의식적으로 전환·휴식 결정"}
+  ],
+  destinations: [
+    {code:"shorts",    label:"쇼츠"},
+    {code:"youtube",   label:"유튜브"},
+    {code:"instagram", label:"인스타"},
+    {code:"search",    label:"웹 검색"},
+    {code:"ai",        label:"AI 도구"},
+    {code:"messenger", label:"메신저"},
+    {code:"community", label:"커뮤니티"},
+    {code:"task",      label:"다른 작업"},
+    {code:"other",     label:"기타"}
+  ],
+  ratings: [
+    {key:"focus",  label:"집중 유지 어려움"},
+    {key:"stim",   label:"다른 자극 욕구"},
+    {key:"burden", label:"현재 작업 부담감"}
+  ],
+  ratingScale: ["없음","약함","중간","강함"],
+  // 전환 시점 빠른 선택 (분 전)
+  switchAgo: [
+    {code:"0",  label:"방금"},
+    {code:"1",  label:"약 1분 전"},
+    {code:"3",  label:"약 3분 전"},
+    {code:"5",  label:"약 5분 전"},
+    {code:"10", label:"약 10분 전"},
+    {code:"custom", label:"직접"}
+  ],
+  aha: {
+    relation: [
+      {code:"I1", label:"직접 관련", desc:"지금 작업 완수에 도움"},
+      {code:"I2", label:"관련 확장", desc:"관련 있지만 새 작업이 생김"},
+      {code:"I3", label:"연상 도약", desc:"흥미롭지만 원래 목표와 멂"}
+    ],
+    urgency: [
+      {code:"now",    label:"지금",  desc:"미루면 가치가 사라짐"},
+      {code:"later",  label:"나중",  desc:"메모해두고 나중에 해도 됨"},
+      {code:"unsure", label:"?",     desc:"그땐 급했는데 잘 모르겠음"}
+    ],
+    // v1에서만 입력받던 항목 (옛 기록 표시·통계용)
+    original: [
+      {code:"direct", label:"바로 복귀"},
+      {code:"after",  label:"곁가지 마치고 복귀"},
+      {code:"no",     label:"복귀 안 함"}
+    ]
+  },
+  followup: {
+    // mid = 통계용 대략값(분). ongoing은 계산에서 제외
+    detour: [
+      {code:"ongoing", label:"아직 진행 중", mid:null},
+      {code:"lt1",     label:"1분 미만",     mid:0.5},
+      {code:"1-3",     label:"1–3분",        mid:2},
+      {code:"3-5",     label:"3–5분",        mid:4},
+      {code:"5-10",    label:"5–10분",       mid:7.5},
+      {code:"10-30",   label:"10–30분",      mid:20},
+      {code:"30+",     label:"30분 이상",    mid:30},
+      {code:"custom",  label:"직접 입력",    mid:null}
+    ],
+    returned: [
+      {code:"direct", label:"예, 바로"},
+      {code:"after",  label:"예, 곁가지 후"},
+      {code:"notyet", label:"아직"},
+      {code:"no",     label:"아니오, 작업 바뀜"}
+    ],
+    context: [
+      {code:"good",        label:"잘 유지"},
+      {code:"partial",     label:"일부"},
+      {code:"reconstruct", label:"다시 읽고 재구성"}
+    ]
+  }
+};
+
+/* =========================================================
+   데이터 모델 (v2)
+
+   Session (작업 세션)
+   { sessionId, taskName, startTime(ISO),
+     estimatedFocusEndTime(ISO|null)  // 추정 전환 시각 (전환으로 끝난 경우)
+     sessionEndTime(ISO|null)         // 실제로 세션을 닫은 시각
+     endType: "active"|"switched"|"completed"|"cancelled",
+     eventId(null|전환 이벤트 id) }
+   집중 시간(focusedDuration)은 저장하지 않고 타임스탬프로 계산 → focusMin()
+
+   Event (전환 이벤트)
+   { id, sessionId(null=세션 없는 기록·옛 기록), createdAt(기록한 시각), updatedAt,
+     triggers[], thought, style, destination, destinationCustom(옛 기록), actionText,
+     ratings{focus,stim,burden},
+     aha{relation,urgency,original(옛 기록)}|null,
+     followup{detourBucket, detourMin, returned, context},
+     task, taskMinutes   // 세션 없는 기록·옛 기록에서만 사용 }
+   ========================================================= */
+function blankEvent(){
+  return {
+    id:null, sessionId:null, createdAt:null, updatedAt:null,
+    task:"", taskMinutes:null, triggers:[], thought:"",
+    style:null, destination:null, destinationCustom:"", actionText:"",
+    ratings:{focus:null, stim:null, burden:null},
+    aha:{relation:null, urgency:null, original:null},
+    followup:{detourBucket:null, detourMin:null, returned:null, context:null}
+  };
+}
+
+/* ===== 저장소 (localStorage) ===== */
+const KEY2 = "switchlog.v2", KEY1 = "switchlog.v1";
+let memoryDB = null;
+function emptyDB(){ return {version:2, sessions:[], events:[], activeSessionId:null}; }
+function migrateEvent(e){
+  const b=blankEvent();
+  const ev=Object.assign(b, e);
+  ev.sessionId = e.sessionId ?? null;
+  ev.triggers = Array.isArray(e.triggers)?e.triggers:[];
+  ev.ratings = Object.assign(blankEvent().ratings, e.ratings||{});
+  ev.aha = e.aha ? Object.assign(blankEvent().aha, e.aha) : null;
+  ev.followup = Object.assign(blankEvent().followup, e.followup||{});
+  // v1의 숫자 우회 시간 → 직접 입력 값으로 취급
+  if(ev.followup.detourMin!=null && !ev.followup.detourBucket) ev.followup.detourBucket="custom";
+  return ev;
+}
+function loadDB(){
+  try{
+    const r2=localStorage.getItem(KEY2);
+    if(r2){ const d=JSON.parse(r2); const db=Object.assign(emptyDB(), d); db.events=db.events.map(migrateEvent); return db; }
+    const db=emptyDB();
+    const r1=localStorage.getItem(KEY1);          // v1 기록 이전 (v1 키는 그대로 남겨둠)
+    if(r1){ const arr=JSON.parse(r1); if(Array.isArray(arr)) db.events=arr.map(migrateEvent); }
+    localStorage.setItem(KEY2, JSON.stringify(db));
+    return db;
+  }catch(e){ return memoryDB || emptyDB(); }
+}
+let db = loadDB();
+function persist(){
+  memoryDB=db;
+  try{ localStorage.setItem(KEY2, JSON.stringify(db)); }
+  catch(e){ toast("브라우저 저장 공간에 쓸 수 없어요. 데이터 탭에서 내보내기를 해두세요."); }
+}
+// 다른 탭에서 바뀐 경우 반영
+window.addEventListener("storage", e=>{ if(e.key===KEY2){ db=loadDB(); if(mode==="home") renderLog(); } });
+
+/* ===== 유틸 ===== */
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const uid = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36)+Math.random().toString(36).slice(2));
+const pad = n => String(n).padStart(2,"0");
+const dayKey = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const hm = d => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+const lbl = (list, code) => (list.find(x=>x.code===code)||{}).label || code || "";
+const getP = (o,p) => p.split(".").reduce((a,k)=>a==null?a:a[k], o);
+const setP = (o,p,v) => { const ks=p.split("."); let t=o; ks.slice(0,-1).forEach(k=>{ if(t[k]==null) t[k]={}; t=t[k]; }); t[ks.at(-1)] = v; };
+const toLocalInput = ms => { if(ms==null) return ""; const d=new Date(ms); return `${dayKey(d)}T${hm(d)}`; };
+function fmtMin(m){ if(m==null||isNaN(m)) return "–"; m=Math.max(0,Math.round(m)); return m<60?`${m}분`:`${Math.floor(m/60)}시간 ${m%60}분`; }
+const median = a => { if(!a.length) return null; const s=[...a].sort((x,y)=>x-y), h=s.length>>1; return s.length%2?s[h]:(s[h-1]+s[h])/2; };
+const avg = a => a.length ? a.reduce((x,y)=>x+y,0)/a.length : null;
+
+const sessById = id => db.sessions.find(s=>s.sessionId===id);
+const activeSession = () => db.activeSessionId ? sessById(db.activeSessionId) : null;
+function focusMin(s){       // 집중 시간 = (추정 전환 시각 또는 정상 종료 시각) − 시작 시각
+  if(!s) return null;
+  const end = s.endType==="switched" ? s.estimatedFocusEndTime : s.endType==="completed" ? s.sessionEndTime : null;
+  return end ? (new Date(end)-new Date(s.startTime))/60000 : null;
+}
+const evSess = e => e.sessionId ? sessById(e.sessionId) : null;
+const evTask = e => evSess(e)?.taskName ?? e.task ?? "";
+const evTime = e => new Date(evSess(e)?.estimatedFocusEndTime || e.createdAt);
+function evReturned(e){      // true / false / null(미정·미입력)
+  const r=e.followup&&e.followup.returned;
+  if(r==="direct"||r==="after"||r==="yes") return true;
+  if(r==="no") return false;
+  if(r==="notyet") return null;
+  if(e.aha&&e.aha.original) return e.aha.original!=="no";
+  return null;
+}
+function evDetour(e){
+  const f=e.followup||{};
+  if(f.detourMin!=null && f.detourMin!=="") return Number(f.detourMin);
+  const b=CONFIG.followup.detour.find(x=>x.code===f.detourBucket); return b? b.mid : null;
+}
+const destLabel = e => {
+  const base = e.destination ? lbl(CONFIG.destinations,e.destination) : "";
+  if(e.destination==="other" && e.destinationCustom) return e.destinationCustom;
+  return base + (e.destinationCustom?` · ${e.destinationCustom}`:"");
+};
+
+let toastT;
+function toast(msg){ const t=$("#toast"); t.textContent=msg; t.classList.add("show"); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove("show"),1800); }
+function armDelete(btn, armedText, fn){
+  if(btn.classList.contains("armed")){ fn(); return; }
+  const orig=btn.textContent; btn.classList.add("armed"); btn.textContent=armedText;
+  setTimeout(()=>{ btn.classList.remove("armed"); btn.textContent=orig; }, 4000);
+}
+
+function tick(){
+  $("#clock").textContent = hm(new Date());
+  const el=$("#elapsed"), s=activeSession();
+  if(el && s) el.textContent = fmtMin((Date.now()-new Date(s.startTime))/60000);
+}
+setInterval(tick, 15000); tick();
+document.addEventListener("visibilitychange", ()=>{ if(!document.hidden){ db=loadDB(); if(mode==="home") renderLog(); tick(); } });
+
+/* =========================================================
+   작업 탭: home(시작/진행 중) ↔ form(전환 기록·수정)
+   ========================================================= */
+let mode = "home";
+let ctx = null;          // {kind:"session"|"free"|"edit", sessionId, pressedAt}
+let draft = blankEvent();
+let ui = {};             // 폼 전용 임시값 (저장되지 않음)
+
+function recentTasks(){
+  const out=[]; const names=[...db.sessions.map(s=>[s.startTime,s.taskName]), ...db.events.filter(e=>!e.sessionId).map(e=>[e.createdAt,e.task])]
+    .filter(x=>x[1]).sort((a,b)=>b[0].localeCompare(a[0]));
+  for(const [,t] of names){ const v=t.trim(); if(v && !out.includes(v)) out.push(v); if(out.length>=5) break; }
+  return out;
+}
+
+function renderLog(){
+  $("#savebar").classList.toggle("hide", mode!=="form");
+  if(mode==="form") return renderForm();
+  const s=activeSession();
+  s ? renderActive(s) : renderStart();
+}
+
+function renderStart(){
+  const rec=recentTasks();
+  const ended=db.sessions.filter(x=>x.endType==="switched"||x.endType==="completed").sort((a,b)=>b.startTime.localeCompare(a.startTime))[0];
+  const recentEnd = ended && (Date.now()-new Date(ended.sessionEndTime||ended.startTime) < 6*3600e3);
+  const waiting=db.events.filter(e=>e.followup&&e.followup.returned==="notyet");
+  $("#view-log").innerHTML=`
+    <section class="sec startbox">
+      <h2>작업 시작</h2>
+      <div class="row">
+        <input class="grow" type="text" id="taskName" placeholder="예: 조현병 논문 읽기" maxlength="80" enterkeyhint="go" autocomplete="off">
+        <button class="startbtn" id="startBtn">▶ 시작</button>
+      </div>
+      ${rec.length?`<div class="recent">${rec.map(t=>`<button type="button" data-recent="${esc(t)}">${esc(t)}</button>`).join("")}</div>`:""}
+      <p class="hint" style="margin-top:12px">시작 시각은 자동으로 기록돼요. 시작하고 나면 이 화면은 잊어도 됩니다.</p>
+    </section>
+    ${waiting.length?`<button class="pending" data-edit="${waiting.at(-1).id}">복귀 여부가 ‘아직’인 기록 ${waiting.length}건 · 가장 최근 것 업데이트</button>`:""}
+    ${recentEnd?`<p class="lastline">최근: ${esc(ended.taskName)} · ${fmtMin(focusMin(ended))} ${ended.endType==="completed"?"후 정상 종료":"집중 후 전환"}
+      <br><button class="restart" data-restart="${esc(ended.taskName)}" style="margin-top:8px">▶ 같은 작업 다시 시작</button></p>`:""}
+    <p class="center"><button class="tiny" id="freeLog">세션 없이 전환만 기록</button></p>`;
+}
+
+function renderActive(s){
+  const st=new Date(s.startTime);
+  $("#view-log").innerHTML=`
+    <section class="sec activecard">
+      <div class="st">NOW PLAYING</div>
+      <div class="tn">${esc(s.taskName||"(이름 없는 작업)")}</div>
+      <div class="meta"><span id="startHm">${hm(st)}</span> 시작 · <span id="elapsed">${fmtMin((Date.now()-st)/60000)}</span> 경과</div>
+      <button class="tiny" id="editStart" style="margin-top:10px">시작 시각 수정</button>
+      <div class="row hide" id="startEditBox" style="margin-top:10px;justify-content:center">
+        <input type="time" id="startInput" value="${hm(st)}" style="width:auto">
+        <button class="restart" id="startApply">적용</button>
+      </div>
+    </section>
+    <button class="bigbtn primary" id="switchBtn">전환됨 · 집중 끊김</button>
+    <button class="bigbtn" id="doneBtn">정상 종료</button>
+    <p class="center"><button class="tiny" id="cancelSess">세션 취소</button></p>`;
+}
+
+function startSession(name){
+  const cur=activeSession();
+  if(cur){ cur.endType="cancelled"; cur.sessionEndTime=new Date().toISOString(); }   // 안전장치: 한 번에 하나만
+  const s={sessionId:uid(), taskName:(name||"").trim(), startTime:new Date().toISOString(),
+           estimatedFocusEndTime:null, sessionEndTime:null, endType:"active", eventId:null};
+  db.sessions.push(s); db.activeSessionId=s.sessionId; persist();
+  renderLog(); toast(`시작 · ${hm(new Date())}`);
+}
+
+$("#view-log").addEventListener("keydown", e=>{ if(e.target.id==="taskName" && e.key==="Enter"){ e.preventDefault(); startSession(e.target.value); } });
+
+$("#view-log").addEventListener("click", e=>{
+  const t=e.target, id=t.id;
+  // ----- home -----
+  if(id==="startBtn"){ startSession($("#taskName").value); return; }
+  const rs=t.closest("[data-restart]"); if(rs){ startSession(rs.dataset.restart); return; }
+  const rc=t.closest("[data-recent]");
+  if(rc){ if($("#taskName")){ $("#taskName").value=rc.dataset.recent; } else { draft.task=rc.dataset.recent; const i=$('[data-input="task"]'); if(i) i.value=draft.task; } return; }
+  const pe=t.closest("[data-edit]"); if(pe){ openEdit(pe.dataset.edit); return; }
+  if(id==="editStart"){ $("#startEditBox").classList.toggle("hide"); return; }
+  if(id==="startApply"){ const s=activeSession(), v=$("#startInput").value; if(!s||!v) return;
+    const [h,m]=v.split(":").map(Number); const d=new Date(s.startTime); d.setHours(h,m,0,0);
+    if(d.getTime()>Date.now()) d.setDate(d.getDate()-1);   // 지금보다 늦은 시각이면 전날로
+    s.startTime=d.toISOString(); persist(); renderLog(); toast(`시작 시각 ${hm(d)}로 수정`); return; }
+  if(id==="doneBtn"){ const s=activeSession(); if(!s) return;
+    s.endType="completed"; s.sessionEndTime=new Date().toISOString(); db.activeSessionId=null; persist();
+    toast(`정상 종료 · ${fmtMin(focusMin(s))}`); renderLog(); return; }
+  if(id==="cancelSess"){ armDelete(t, "세션 취소? 한 번 더 누르기", ()=>{ const s=activeSession(); if(s){ s.endType="cancelled"; s.sessionEndTime=new Date().toISOString(); } db.activeSessionId=null; persist(); renderLog(); toast("세션을 취소했어요"); }); return; }
+  if(id==="switchBtn"){ const s=activeSession(); if(!s) return;
+    ctx={kind:"session", sessionId:s.sessionId, pressedAt:Date.now()}; draft=blankEvent(); ui={sw:"0", customMin:null, customClock:""};
+    mode="form"; renderLog(); window.scrollTo(0,0); return; }
+  if(id==="freeLog"){ ctx={kind:"free"}; draft=blankEvent(); ui={}; mode="form"; renderLog(); window.scrollTo(0,0); return; }
+  // ----- form -----
+  if(id==="toggleDefs"){ $("#defs").classList.toggle("hide"); return; }
+  if(id==="cancelForm"){ const wasEdit=ctx.kind==="edit"; mode="home"; ctx=null; renderLog(); if(wasEdit) show("list"); return; }
+  if(id==="delOne"){ armDelete(t, "기록과 연결된 세션까지 삭제? 한 번 더", ()=>{
+      const ev=db.events.find(x=>x.id===ctx.eventId);
+      db.events=db.events.filter(x=>x.id!==ctx.eventId);
+      if(ev&&ev.sessionId) db.sessions=db.sessions.filter(s=>s.sessionId!==ev.sessionId);
+      persist(); mode="home"; ctx=null; toast("삭제했어요"); show("list"); }); return; }
+  const sw=t.closest("[data-sw]"); if(sw){ ui.sw=sw.dataset.sw; syncSwitch(); return; }
+  const b=t.closest("[data-field]"); if(!b) return;
+  const f=b.dataset.field, v=b.dataset.num? Number(b.dataset.value) : b.dataset.value;
+  if(b.dataset.multi){ const arr=getP(draft,f); const i=arr.indexOf(v); i>=0?arr.splice(i,1):arr.push(v); }
+  else setP(draft,f, getP(draft,f)===v ? null : v);
+  syncChips();
+});
+
+$("#view-log").addEventListener("input", e=>{
+  const k=e.target.dataset.input, u=e.target.dataset.ui;
+  if(u){ ui[u] = e.target.type==="number" ? (e.target.value===""?null:Math.max(0,Number(e.target.value))) : e.target.value;
+         if(u==="customMin") ui.customClock=""; if(u==="customClock") ui.customMin=null;
+         if(u==="customMin"||u==="customClock") syncCustomInputs();
+         syncSwitch(); return; }
+  if(!k) return;
+  const num = e.target.type==="number";
+  setP(draft,k, num ? (e.target.value===""?null:Math.max(0,Number(e.target.value))) : e.target.value);
+});
+
+/* ----- 전환 시점 계산 ----- */
+function computeSwitch(){        // → {ms, clamped}
+  const s=sessById(ctx.sessionId); const start=new Date(s.startTime).getTime();
+  let base, ms;
+  if(ctx.kind==="edit"){ // 수정: 직접 지정한 시각
+    ms = ui.editSwitch ? new Date(ui.editSwitch).getTime() : new Date(s.estimatedFocusEndTime||s.startTime).getTime();
+    base = new Date(s.sessionEndTime||Date.now()).getTime();
+  } else {
+    base = ctx.pressedAt;
+    if(ui.sw==="custom"){
+      if(ui.customClock){ const [h,m]=ui.customClock.split(":").map(Number); const d=new Date(base); d.setHours(h,m,0,0); if(d.getTime()>base) d.setDate(d.getDate()-1); ms=d.getTime(); }
+      else ms = base - (ui.customMin||0)*60000;
+    } else ms = base - Number(ui.sw)*60000;
+  }
+  let clamped=false;
+  if(ms<start){ ms=start; clamped=true; }
+  if(ms>base){ ms=base; clamped=true; }
+  return {ms, start, clamped};
+}
+function syncSwitch(){
+  document.querySelectorAll("[data-sw]").forEach(b=>{ const on=b.dataset.sw===ui.sw; b.classList.toggle("on",on); b.setAttribute("aria-pressed",on); });
+  const cs=$("#customSw"); if(cs) cs.classList.toggle("hide", ui.sw!=="custom");
+  const box=$("#swSummary"); if(!box) return;
+  const {ms,start,clamped}=computeSwitch();
+  box.innerHTML=`<div><span>시작</span><b>${hm(new Date(start))}</b></div>
+    <div><span>추정 전환</span><b>${hm(new Date(ms))}</b></div>
+    <div class="foc"><span>집중</span><b>${fmtMin((ms-start)/60000)}</b></div>`;
+  $("#clampNote").textContent = clamped ? "시작 시각과 현재 시각 사이로 맞췄어요." : "";
+}
+function syncCustomInputs(){
+  const m=$('[data-ui="customMin"]'), c=$('[data-ui="customClock"]');
+  if(m && ui.customMin==null && document.activeElement!==m) m.value="";
+  if(c && !ui.customClock && document.activeElement!==c) c.value="";
+}
+
+/* ----- 폼 ----- */
+function chips(field, list, opts={}){
+  const cls = opts.cols ?? "g3";
+  return `<div class="grid ${cls}">` + list.map(o=>{
+    const isAha = field==="triggers" && o.code==="I";
+    const codeHtml = opts.showCode ? `<span class="code">${esc(o.code)}</span>` : "";
+    const sub = opts.desc && o.desc ? `<small>${esc(o.desc)}</small>` : "";
+    return `<button type="button" class="chip${isAha?" aha":""}${opts.left?" left":""}" data-field="${field}" data-value="${esc(o.code)}" ${opts.multi?'data-multi="1"':""}>${codeHtml}${esc(o.label)}${sub}</button>`;
+  }).join("") + `</div>`;
+}
+
+function renderForm(){
+  const k=ctx.kind;
+  const ev = k==="edit" ? db.events.find(x=>x.id===ctx.eventId) : null;
+  const sess = k==="session" ? sessById(ctx.sessionId) : (ev&&ev.sessionId ? sessById(ev.sessionId) : null);
+  const hasSess = !!sess;
+  if(hasSess) ctx.sessionId = sess.sessionId;
+  const rec=recentTasks();
+  let n=0; const num=()=>`<span class="n px">${++n}</span>`;
+
+  let top="";
+  if(k==="session"){
+    top=`<section class="sec">
+      <h2>${num()}전환은 언제쯤 시작됐나</h2>
+      <div class="hint">${esc(sess.taskName||"(이름 없는 작업)")}</div>
+      <div class="grid g3">${CONFIG.switchAgo.map(o=>`<button type="button" class="chip" data-sw="${o.code}">${esc(o.label)}</button>`).join("")}</div>
+      <div class="customsw hide" id="customSw">
+        <label>몇 분 전<input type="number" inputmode="numeric" min="0" data-ui="customMin" placeholder="분"></label>
+        <label>또는 시각<input type="time" data-ui="customClock"></label>
+      </div>
+      <div class="summary" id="swSummary"></div>
+      <div class="clampnote" id="clampNote"></div>
+    </section>`;
+  } else if(k==="edit" && hasSess){
+    top=`<section class="sec">
+      <h2>${num()}전환 시점</h2>
+      <div class="hint">${esc(sess.taskName||"(이름 없는 작업)")}</div>
+      <input type="datetime-local" data-ui="editSwitch" value="${toLocalInput(new Date(sess.estimatedFocusEndTime||sess.startTime).getTime())}">
+      <div class="summary" id="swSummary"></div>
+      <div class="clampnote" id="clampNote"></div>
+    </section>`;
+  } else {
+    top=`${k==="edit"?`<section class="sec"><h2>시각</h2><input type="datetime-local" data-ui="editCreated" value="${toLocalInput(new Date(draft.createdAt).getTime())}"></section>`:""}
+    <section class="sec">
+      <h2>${num()}원래 하던 일</h2>
+      <div class="row">
+        <input class="grow" type="text" data-input="task" placeholder="예: 논문 읽기" value="${esc(draft.task)}" maxlength="80">
+        <input class="mins" type="number" inputmode="numeric" min="0" data-input="taskMinutes" placeholder="분" value="${draft.taskMinutes??""}" aria-label="몇 분째 하고 있었나">
+      </div>
+      <div class="hint">오른쪽 칸: 몇 분째 하던 중이었나 <span class="opt">(선택)</span></div>
+      ${rec.length?`<div class="recent">${rec.map(t=>`<button type="button" data-recent="${esc(t)}">${esc(t)}</button>`).join("")}</div>`:""}
+    </section>`;
+  }
+
+  const legacyAhaOriginal = draft.aha && draft.aha.original
+    ? `<div class="subq">원래 작업은 <span class="opt">(이전 버전 항목)</span></div>${chips("aha.original", CONFIG.aha.original)}` : "";
+
+  $("#view-log").innerHTML = `
+    <p class="hint" style="margin:0 0 12px">${k==="edit"?"기록 수정 중":k==="session"?"전환 기록":"세션 없는 전환 기록"} · <button class="tiny" id="cancelForm">${k==="session"?"돌아가기 (세션 유지)":"취소"}</button></p>
+    ${top}
+    <section class="sec">
+      <h2>${num()}전환 직전 무슨 일이</h2>
+      <div class="hint">1–2개 권장 · <button type="button" class="tiny" id="toggleDefs">정의 보기</button></div>
+      ${chips("triggers", CONFIG.triggers, {multi:true, showCode:true})}
+      <ul class="defs hide" id="defs">${CONFIG.triggers.map(t=>`<li><b>${t.code}</b>${esc(t.label)}: ${esc(t.desc)}</li>`).join("")}</ul>
+      <div class="warnline" id="trigWarn"></div>
+    </section>
+
+    <section class="sec ahabox hide" id="ahaBox">
+      <h2><span class="n px" style="color:var(--yellow)">★</span>아하! 전환 세부</h2>
+      <div class="subq">현재 목표와의 관계</div>
+      ${chips("aha.relation", CONFIG.aha.relation, {cols:"", desc:true, left:true, showCode:true})}
+      <div class="subq">정말 지금 해야 했나</div>
+      ${chips("aha.urgency", CONFIG.aha.urgency, {desc:true})}
+      ${legacyAhaOriginal}
+    </section>
+
+    <section class="sec">
+      <h2>${num()}전환 직전의 생각</h2>
+      <textarea data-input="thought" placeholder="전환 직전 머릿속에 무엇이 스쳤나? 예: “잊기 전에 찾아봐야지”, “친구한테 이거 말해줘야겠다”">${esc(draft.thought)}</textarea>
+    </section>
+
+    <section class="sec">
+      <h2>${num()}전환 방식</h2>
+      ${chips("style", CONFIG.styles, {desc:true})}
+    </section>
+
+    <section class="sec">
+      <h2>${num()}어디로 갔나</h2>
+      ${chips("destination", CONFIG.destinations)}
+      <input type="text" data-input="actionText" placeholder="실제로 무엇을 했나? 예: 새 기능이 코드를 어떻게 바꿨는지 Claude에게 물어봄" value="${esc(draft.actionText)}" style="margin-top:10px" maxlength="140">
+      ${draft.destinationCustom?`<input type="text" data-input="destinationCustom" value="${esc(draft.destinationCustom)}" style="margin-top:8px" aria-label="목적지 직접 입력(이전 버전)">`:""}
+    </section>
+
+    <section class="sec">
+      <h2>${num()}상태 <span class="opt">0 없음 · 3 강함</span></h2>
+      ${CONFIG.ratings.map(r=>`<div class="rating"><div class="lbl">${esc(r.label)}</div>
+        <div class="grid g4">${[0,1,2,3].map(v=>`<button type="button" class="chip" data-field="ratings.${r.key}" data-value="${v}" data-num="1" aria-label="${v} ${CONFIG.ratingScale[v]}">${v}</button>`).join("")}</div></div>`).join("")}
+    </section>
+
+    <section class="sec">
+      <h2>${num()}전환 이후 <span class="opt">모두 선택</span></h2>
+      <div class="subq">곁가지에 쓴 시간</div>
+      ${chips("followup.detourBucket", CONFIG.followup.detour, {cols:"g4"})}
+      <div class="row hide" id="detourCustom" style="margin-top:8px"><input class="mins" type="number" inputmode="numeric" min="0" data-input="followup.detourMin" value="${draft.followup.detourMin??""}" placeholder="분"><span>분</span></div>
+      <div class="subq">원래 작업으로 돌아왔나</div>
+      ${chips("followup.returned", CONFIG.followup.returned, {cols:"g2"})}
+      <div class="hint">‘아직’을 고르면 나중에 목록에서 이어서 수정할 수 있어요.</div>
+      <div id="ctxBox" class="hide">
+        <div class="subq">돌아왔을 때 맥락은</div>
+        ${chips("followup.context", CONFIG.followup.context)}
+      </div>
+    </section>
+    ${k==="edit"?`<button class="btn danger" id="delOne">이 기록 삭제</button>`:""}
+  `;
+  syncChips();
+  if(top.includes("swSummary")) syncSwitch();
+  $("#saveBtn").querySelector(".ko").textContent = k==="edit" ? "수정 저장" : "기록 저장";
+}
+
+function syncChips(){
+  document.querySelectorAll("#view-log [data-field]").forEach(b=>{
+    const f=b.dataset.field, v=b.dataset.num? Number(b.dataset.value) : b.dataset.value;
+    const cur=getP(draft,f);
+    const on = Array.isArray(cur) ? cur.includes(v) : cur===v;
+    b.classList.toggle("on", on); b.setAttribute("aria-pressed", on);
+  });
+  const box=$("#ahaBox"); if(box) box.classList.toggle("hide", !draft.triggers.includes("I"));
+  const w=$("#trigWarn"); if(w) w.textContent = draft.triggers.length>2 ? "3개 이상 선택됨. 가장 가까운 1–2개가 분석에 더 유용해요." : "";
+  const dc=$("#detourCustom"); if(dc) dc.classList.toggle("hide", draft.followup.detourBucket!=="custom");
+  const cb=$("#ctxBox"); if(cb) cb.classList.toggle("hide", !["direct","after"].includes(draft.followup.returned) && !draft.followup.context);
+}
+
+function cleanEvent(src){
+  const ev=JSON.parse(JSON.stringify(src));
+  ev.task=(ev.task||"").trim(); ev.thought=(ev.thought||"").trim(); ev.actionText=(ev.actionText||"").trim(); ev.destinationCustom=(ev.destinationCustom||"").trim();
+  if(!ev.triggers.includes("I")) ev.aha=null;
+  if(ev.followup.detourBucket!=="custom") ev.followup.detourMin=null;
+  return ev;
+}
+
+$("#saveBtn").addEventListener("click", ()=>{
+  const now=new Date().toISOString();
+  const k=ctx.kind;
+  if(k==="session"){
+    const s=sessById(ctx.sessionId); const {ms}=computeSwitch();
+    const ev=cleanEvent(draft); ev.id=uid(); ev.sessionId=s.sessionId; ev.createdAt=now; ev.task=""; ev.taskMinutes=null;
+    s.estimatedFocusEndTime=new Date(ms).toISOString(); s.sessionEndTime=now; s.endType="switched"; s.eventId=ev.id;
+    if(db.activeSessionId===s.sessionId) db.activeSessionId=null;
+    db.events.push(ev); persist();
+    mode="home"; ctx=null; renderLog(); window.scrollTo(0,0);
+    toast(`기록됨 · ${fmtMin(focusMin(s))} 집중`);
+  } else if(k==="free"){
+    const ev=cleanEvent(draft); ev.id=uid(); ev.createdAt=now; ev.sessionId=null;
+    db.events.push(ev); persist();
+    mode="home"; ctx=null; renderLog(); window.scrollTo(0,0); toast(`기록됨 · ${hm(new Date())}`);
+  } else {
+    const ev=cleanEvent(draft); ev.updatedAt=now;
+    if(ev.sessionId){ const s=sessById(ev.sessionId); if(s && ui.editSwitch){ s.estimatedFocusEndTime=new Date(computeSwitch().ms).toISOString(); } }
+    else if(ui.editCreated){ const d=new Date(ui.editCreated); if(!isNaN(d)) ev.createdAt=d.toISOString(); }
+    db.events=db.events.map(x=>x.id===ev.id?ev:x);
+    persist(); mode="home"; ctx=null; renderLog(); toast("수정했어요"); show("list");
+  }
+});
+
+function openEdit(id){
+  const ev=db.events.find(x=>x.id===id); if(!ev) return;
+  ctx={kind:"edit", eventId:id}; ui={};
+  draft=migrateEvent(JSON.parse(JSON.stringify(ev)));
+  if(!draft.aha) draft.aha=blankEvent().aha;
+  mode="form"; show("log"); window.scrollTo(0,0);
+}
+
+/* ===== 목록 ===== */
+const filt = {date:"", trig:"", dest:"", task:"", aha:""};
+function renderList(){
+  const tasks=[...new Set([...db.events.map(evTask), ...db.sessions.filter(s=>s.endType==="completed").map(s=>s.taskName)].filter(Boolean))].sort();
+  const opt=(v,l,cur)=>`<option value="${esc(v)}"${cur===v?" selected":""}>${esc(l)}</option>`;
+  const evRows = db.events.filter(e=>{
+    if(filt.date && dayKey(evTime(e))!==filt.date) return false;
+    if(filt.trig && !e.triggers.includes(filt.trig)) return false;
+    if(filt.dest && e.destination!==filt.dest) return false;
+    if(filt.task && evTask(e)!==filt.task) return false;
+    if(filt.aha && !(e.aha && e.aha.relation===filt.aha)) return false;
+    return true;
+  }).map(e=>({t:evTime(e), e}));
+  const showSess = !filt.trig && !filt.dest && !filt.aha;
+  const sRows = showSess ? db.sessions.filter(s=>s.endType==="completed")
+    .filter(s=>(!filt.date || dayKey(new Date(s.sessionEndTime))===filt.date) && (!filt.task || s.taskName===filt.task))
+    .map(s=>({t:new Date(s.sessionEndTime), s})) : [];
+  const rows=[...evRows, ...sRows].sort((a,b)=>b.t-a.t);
+
+  let html = `<section class="sec"><h2>필터</h2><div class="filters">
+    <input type="date" data-f="date" value="${filt.date}" aria-label="날짜">
+    <select data-f="trig">${opt("","트리거 전체",filt.trig)}${CONFIG.triggers.map(t=>opt(t.code,`${t.code} ${t.label}`,filt.trig)).join("")}</select>
+    <select data-f="dest">${opt("","목적지 전체",filt.dest)}${CONFIG.destinations.map(t=>opt(t.code,t.label,filt.dest)).join("")}</select>
+    <select data-f="aha">${opt("","아하 유형 전체",filt.aha)}${CONFIG.aha.relation.map(t=>opt(t.code,`${t.code} ${t.label}`,filt.aha)).join("")}</select>
+    <select data-f="task" style="grid-column:1/-1">${opt("","원래 작업 전체",filt.task)}${tasks.map(t=>opt(t,t,filt.task)).join("")}</select>
+  </div>${Object.values(filt).some(Boolean)?`<button class="tiny" id="clearF" style="margin-top:8px">필터 지우기</button>`:""}</section>`;
+
+  if(!db.events.length && !db.sessions.length){ html += `<div class="empty"><span class="px">NO DATA</span>아직 기록이 없어요. 작업 탭에서 작업을 시작해 보세요.</div>`; }
+  else if(!rows.length){ html += `<div class="empty">조건에 맞는 기록이 없어요. 필터를 바꿔보세요.</div>`; }
+  else {
+    let last="";
+    rows.forEach(({t,e,s})=>{
+      const k=dayKey(t);
+      if(k!==last){ html += `<div class="daylabel">${k}</div>`; last=k; }
+      if(s){ html += `<div class="sessrow">■ ${hm(new Date(s.startTime))}–${hm(t)} · ${esc(s.taskName||"(이름 없는 작업)")} · ${fmtMin(focusMin(s))} 후 정상 종료</div>`; return; }
+      const isAha=e.triggers.includes("I"), sess=evSess(e);
+      const dur = sess ? `<span class="opt">${fmtMin(focusMin(sess))} 집중</span>` : (e.taskMinutes!=null?`<span class="opt">${e.taskMinutes}분째</span>`:"");
+      const wait = e.followup&&e.followup.returned==="notyet";
+      html += `<button class="item${isAha?" isaha":""}" data-id="${e.id}">
+        <div class="top"><span>${hm(t)}${e.style?` · ${lbl(CONFIG.styles,e.style)}`:""}</span><span>${esc(destLabel(e))}</span></div>
+        <div class="task">${esc(evTask(e)||"(작업 미입력)")} ${dur}</div>
+        <div>${e.triggers.map(c=>`<span class="tag ${c==="I"?"I":""}">${c}</span>`).join("")}${e.aha&&e.aha.relation?`<span class="tag I">${e.aha.relation}</span>`:""}${e.aha&&e.aha.urgency?`<span class="tag">${esc(lbl(CONFIG.aha.urgency,e.aha.urgency))}</span>`:""}${wait?`<span class="tag wait">복귀 미정</span>`:""}</div>
+        ${e.thought?`<div class="th">“${esc(e.thought)}”</div>`:""}
+        ${e.actionText?`<div class="th">→ ${esc(e.actionText)}</div>`:""}
+      </button>`;
+    });
+  }
+  $("#view-list").innerHTML = html;
+}
+$("#view-list").addEventListener("change", e=>{ const f=e.target.dataset.f; if(!f) return; filt[f]=e.target.value; renderList(); });
+$("#view-list").addEventListener("click", e=>{
+  if(e.target.id==="clearF"){ Object.keys(filt).forEach(k=>filt[k]=""); renderList(); return; }
+  const it=e.target.closest(".item"); if(it) openEdit(it.dataset.id);
+});
+
+/* ===== 분석 ===== */
+function countBy(arr){ const m=new Map(); arr.forEach(v=>{ if(v==null||v==="") return; m.set(v,(m.get(v)||0)+1); }); return m; }
+function bars(rows, ahaKey, fmt){
+  if(!rows.length || !rows.some(r=>r[1])) return `<p class="note">데이터 없음</p>`;
+  const max=Math.max(...rows.map(r=>r[1]),1);
+  return `<div class="bars">`+rows.map(([l,n,key,extra])=>`<div class="bar${fmt?" wide":""}"><span class="lab">${esc(l)}</span>
+    <span class="track"><span class="fill${key&&key===ahaKey?" I":""}" style="display:block;width:${(n/max*100).toFixed(1)}%"></span></span>
+    <span class="num">${fmt?fmt(n,extra):n}</span></div>`).join("")+`</div>`;
+}
+const pct=(a,b)=> b? Math.round(a/b*100)+"%" : "–";
+const minFmt=(v,c)=>`${Math.round(v)}m${c!=null?`<br><span class="opt">n=${c}</span>`:""}`;
+
+function renderStats(){
+  const E=db.events, total=E.length;
+  const S=db.sessions.filter(s=>s.endType==="switched"||s.endType==="completed");
+  if(!total && !S.length){ $("#view-stats").innerHTML=`<div class="empty"><span class="px">NO DATA</span>기록이 쌓이면 여기에 패턴이 보여요.</div>`; return; }
+
+  const sw=S.filter(s=>s.endType==="switched"), done=S.filter(s=>s.endType==="completed");
+  const swMins=sw.map(focusMin).filter(v=>v!=null);
+  const sessEvent = s => s.eventId ? E.find(e=>e.id===s.eventId) : E.find(e=>e.sessionId===s.sessionId);
+
+  // 작업별 집중 시간 (전환으로 끝난 세션)
+  const byTask=new Map(); sw.forEach(s=>{ const m=focusMin(s); if(m==null) return; const k=s.taskName||"(이름 없음)"; (byTask.get(k)||byTask.set(k,[]).get(k)).push(m); });
+  const taskFocusRows=[...byTask].map(([k,a])=>[k,avg(a),null,a.length]).sort((a,b)=>b[3]-a[3]).slice(0,8);
+  // 트리거별 집중 시간
+  const byTrig=new Map(); sw.forEach(s=>{ const e=sessEvent(s), m=focusMin(s); if(!e||m==null) return; e.triggers.forEach(c=>(byTrig.get(c)||byTrig.set(c,[]).get(c)).push(m)); });
+  const trigFocusRows=CONFIG.triggers.filter(t=>byTrig.get(t.code)).map(t=>[`${t.code} ${t.label}`,avg(byTrig.get(t.code)),t.code,byTrig.get(t.code).length]);
+  // 세션을 가장 자주 끝낸 트리거
+  const endTrig=countBy(sw.flatMap(s=>{ const e=sessEvent(s); return e?e.triggers:[]; }));
+  const topEnd=[...endTrig].sort((a,b)=>b[1]-a[1])[0];
+
+  const days=countBy(E.map(e=>dayKey(evTime(e))));
+  const ahaE=E.filter(e=>e.triggers.includes("I"));
+  const trig=countBy(E.flatMap(e=>e.triggers));
+  const trigRows=CONFIG.triggers.map(t=>[`${t.code} ${t.label}`, trig.get(t.code)||0, t.code]).filter(r=>r[1]).sort((a,b)=>b[1]-a[1]);
+
+  const today=new Date(); const dayRows=[];
+  for(let i=13;i>=0;i--){ const d=new Date(today); d.setDate(d.getDate()-i); const k=dayKey(d); dayRows.push([k.slice(5), days.get(k)||0]); }
+
+  const rel=countBy(ahaE.map(e=>e.aha&&e.aha.relation));
+  const urg=countBy(ahaE.map(e=>e.aha&&e.aha.urgency));
+  const styleOther=countBy(E.filter(e=>!e.triggers.includes("I")).map(e=>e.style));
+  const styleAha=countBy(ahaE.map(e=>e.style));
+  const styleRows=m=>CONFIG.styles.map(s=>[s.label,m.get(s.code)||0]);
+
+  const dest=countBy(E.map(e=>e.destination==="other"&&e.destinationCustom? "custom:"+e.destinationCustom : e.destination));
+  const destRows=[...dest].map(([k,n])=>[k.startsWith("custom:")?k.slice(7):lbl(CONFIG.destinations,k),n]).sort((a,b)=>b[1]-a[1]).slice(0,8);
+
+  const detours=E.map(evDetour).filter(v=>v!=null);
+  let yes=0,no=0,wait=0; E.forEach(e=>{ const r=evReturned(e); if(r===true) yes++; else if(r===false) no++; else if(e.followup&&e.followup.returned==="notyet") wait++; });
+
+  const taskCount=countBy(E.map(evTask)); const topTasks=[...taskCount].sort((a,b)=>b[1]-a[1]).slice(0,6).map(x=>x[0]);
+  const usedCodes=CONFIG.triggers.map(t=>t.code).filter(c=>trig.get(c));
+  let tbl="";
+  if(topTasks.length && usedCodes.length){
+    tbl=`<div class="tbl-wrap"><table><tr><th></th>${usedCodes.map(c=>`<th class="px" style="font-size:10px">${c}</th>`).join("")}</tr>`+
+      topTasks.map(t=>{ const c=countBy(E.filter(e=>evTask(e)===t).flatMap(e=>e.triggers)); const mx=Math.max(...c.values(),0);
+        return `<tr><td class="t">${esc(t)}</td>${usedCodes.map(k=>{const n=c.get(k)||0; return `<td class="${n&&n===mx?"hot":""}">${n||""}</td>`;}).join("")}</tr>`; }).join("")+`</table></div>`;
+  }
+  const hb=new Array(8).fill(0); E.forEach(e=>hb[Math.floor(evTime(e).getHours()/3)]++);
+  const hourRows=hb.map((n,i)=>[`${pad(i*3)}–${pad(i*3+3)}시`,n]);
+  const cnt=c=>trig.get(c)||0;
+
+  $("#view-stats").innerHTML=`
+    <section class="sec"><h2>작업 세션 <span class="opt">취소 제외</span></h2>
+      <div class="big">
+        <div><b>${S.length}</b><span>세션</span></div>
+        <div><b>${pct(done.length,S.length)}</b><span>정상 종료 (${done.length})</span></div>
+        <div><b>${pct(sw.length,S.length)}</b><span>전환으로 끝남 (${sw.length})</span></div>
+      </div>
+      <div class="big" style="margin-top:8px">
+        <div><b>${swMins.length?Math.round(avg(swMins)):"–"}</b><span>전환 전 평균(분)</span></div>
+        <div><b>${swMins.length?Math.round(median(swMins)):"–"}</b><span>전환 전 중앙값(분)</span></div>
+        <div><b style="font-size:13px">${topEnd?esc(topEnd[0]+" "+lbl(CONFIG.triggers,topEnd[0])):"–"}</b><span>세션을 가장 자주 끝낸 트리거</span></div>
+      </div>
+    </section>
+
+    <section class="sec"><h2>작업별 집중 시간 <span class="opt">전환 전 평균</span></h2>${bars(taskFocusRows,null,minFmt)}</section>
+    <section class="sec"><h2>트리거별 집중 시간 <span class="opt">전환 전 평균</span></h2>${bars(trigFocusRows,"I",minFmt)}</section>
+
+    <section class="sec"><h2>전환 기록 <span class="opt">${total}건</span></h2><div class="big">
+      <div><b style="color:var(--yellow)">${pct(cnt("I"),total)}</b><span>I 아하 (${cnt("I")})</span></div>
+      <div><b>${pct(cnt("C"),total)}</b><span>C 곁가지 호기심 (${cnt("C")})</span></div>
+      <div><b>${pct(cnt("S"),total)}</b><span>S 공유 충동 (${cnt("S")})</span></div>
+    </div></section>
+
+    <section class="sec"><h2>날짜별 <span class="opt">최근 14일</span></h2>${bars(dayRows)}</section>
+    <section class="sec"><h2>트리거</h2>${bars(trigRows,"I")}</section>
+
+    <section class="sec ahabox"><h2>아하 전환 <span class="opt">${ahaE.length}건</span></h2>
+      ${ahaE.length?`
+      <div class="subq">목표와의 관계</div>${bars(CONFIG.aha.relation.map(r=>[`${r.code} ${r.label}`,rel.get(r.code)||0]))}
+      <div class="subq">지금 해야 했나</div>${bars(CONFIG.aha.urgency.map(r=>[r.label,urg.get(r.code)||0]))}
+      <div class="subq">전환 방식: 아하</div>${bars(styleRows(styleAha))}
+      <div class="subq">전환 방식: 아하 외</div>${bars(styleRows(styleOther))}
+      `:`<p class="note">아직 I가 포함된 기록이 없어요.</p>`}
+    </section>
+
+    <section class="sec"><h2>목적지</h2>${bars(destRows)}</section>
+
+    <section class="sec"><h2>전환 이후</h2><div class="big">
+      <div><b>${pct(yes,yes+no)}</b><span>복귀율 (${yes+no}건 응답)</span></div>
+      <div><b>${detours.length?avg(detours).toFixed(1):"–"}</b><span>평균 우회(분, 대략)</span></div>
+      <div><b>${wait}</b><span>복귀 미정</span></div>
+    </div></section>
+
+    <section class="sec"><h2>작업별 트리거</h2>${tbl||`<p class="note">작업명이 있는 기록이 필요해요.</p>`}</section>
+    <section class="sec"><h2>시간대별 <span class="opt">전환 시점 기준</span></h2>${bars(hourRows)}</section>
+  `;
+}
+
+/* ===== 데이터 (내보내기·가져오기·삭제) ===== */
+let downloads=null;
+if(window.claude && typeof window.claude.use==="function"){
+  window.claude.use("downloads").then(d=>{ downloads=d; }).catch(()=>{});
+}
+async function offerFile(filename, text){
+  if(downloads){
+    try{ await downloads.save({filename, data:text}); toast("저장했어요"); return; }
+    catch(err){ if(err && err.code==="declined") return; if(err && err.code==="rate_limited"){ toast("잠시 후 다시 눌러주세요"); return; } }
+  }
+  const standalone = !window.claude;   // GitHub Pages 등 일반 웹: 브라우저 다운로드로 충분
+  try{ const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([text],{type:"application/octet-stream"})); a.download=filename; document.body.appendChild(a); a.click(); a.remove(); if(standalone) return; }catch(e){}
+  $("#modalTitle").textContent=filename; $("#modalText").value=text; $("#modal").classList.add("show");
+}
+$("#modalClose").onclick=()=>$("#modal").classList.remove("show");
+
+const csvq=v=>{ v=v==null?"":String(v); return /[",\n\r]/.test(v)?`"${v.replace(/"/g,'""')}"`:v; };
+const r1=v=>v==null?"":Math.round(v*10)/10;
+function eventsCSV(){
+  const cols=["id","sessionId","taskName","sessionStart","switchTime","focusedMin","loggedAt","triggers","thought","style","destination","destinationCustom","actionText",
+    "focus","stim","burden","ahaRelation","ahaUrgency","ahaOriginal","detourBucket","detourMin","returned","context","legacyTaskMinutes","updatedAt"];
+  const rows=db.events.map(e=>{ const s=evSess(e); return [e.id,e.sessionId,evTask(e),s?.startTime,s?.estimatedFocusEndTime,r1(focusMin(s)),e.createdAt,(e.triggers||[]).join("|"),e.thought,e.style,e.destination,e.destinationCustom,e.actionText,
+    e.ratings?.focus,e.ratings?.stim,e.ratings?.burden,e.aha?.relation,e.aha?.urgency,e.aha?.original,e.followup?.detourBucket,e.followup?.detourMin,e.followup?.returned,e.followup?.context,e.taskMinutes,e.updatedAt].map(csvq).join(","); });
+  return "\uFEFF"+[cols.join(","),...rows].join("\n");
+}
+function sessionsCSV(){
+  const cols=["sessionId","taskName","startTime","estimatedFocusEndTime","sessionEndTime","endType","focusedMin","eventId"];
+  const rows=db.sessions.map(s=>[s.sessionId,s.taskName,s.startTime,s.estimatedFocusEndTime,s.sessionEndTime,s.endType,r1(focusMin(s)),s.eventId].map(csvq).join(","));
+  return "\uFEFF"+[cols.join(","),...rows].join("\n");
+}
+
+function renderSet(){
+  $("#view-set").innerHTML=`
+    <section class="sec"><h2>내보내기</h2>
+      <button class="btn" id="exJson">JSON 백업 내보내기</button>
+      <button class="btn" id="exCsv">전환 기록 CSV</button>
+      <button class="btn" id="exSCsv" style="margin:0">작업 세션 CSV</button>
+    </section>
+    <section class="sec"><h2>가져오기</h2>
+      <p class="note">JSON 백업(이전 버전 포함)을 불러오면 기존 기록에 합쳐져요. 같은 기록은 중복되지 않아요.</p>
+      <input type="file" id="imFile" accept=".json,application/json" class="hide">
+      <button class="btn" id="imBtn" style="margin:0">JSON 백업 불러오기</button>
+    </section>
+    <section class="sec"><h2>저장 위치</h2>
+      <p class="note" style="margin-top:0">모든 기록은 이 브라우저 안에만 저장돼요. 서버 전송, 로그인, 추적 도구는 없어요. 브라우저 데이터를 지우면 기록도 사라지니 가끔 백업하세요.</p>
+      <p class="note">전환 기록 ${db.events.length}건 · 세션 ${db.sessions.length}개</p>
+      <button class="btn danger" id="wipe" style="margin:0">전체 삭제</button>
+    </section>`;
+}
+$("#view-set").addEventListener("click", e=>{
+  const id=e.target.id, stamp=dayKey(new Date());
+  if(id==="exJson"){
+    const sessions=db.sessions.map(s=>Object.assign({}, s, {focusedDurationMin:r1(focusMin(s))||null}));
+    offerFile(`switch-log-${stamp}.json`, JSON.stringify({app:"switch-log",version:2,exportedAt:new Date().toISOString(),activeSessionId:db.activeSessionId,sessions,events:db.events},null,2));
+  }
+  if(id==="exCsv") offerFile(`switch-log-events-${stamp}.csv`, eventsCSV());
+  if(id==="exSCsv") offerFile(`switch-log-sessions-${stamp}.csv`, sessionsCSV());
+  if(id==="imBtn") $("#imFile").click();
+  if(id==="wipe") armDelete(e.target, "모두 삭제? 한 번 더 누르기", ()=>{
+    db=emptyDB(); persist(); try{ localStorage.removeItem(KEY1); }catch(_){}
+    mode="home"; ctx=null; renderSet(); toast("전체 삭제했어요"); });
+});
+$("#view-set").addEventListener("change", e=>{
+  if(e.target.id!=="imFile" || !e.target.files[0]) return;
+  const rd=new FileReader();
+  rd.onload=()=>{
+    try{
+      const data=JSON.parse(rd.result);
+      const evs=Array.isArray(data)?data:(data.events||[]);
+      const ses=Array.isArray(data)?[]:(data.sessions||[]);
+      if(!Array.isArray(evs)||!Array.isArray(ses)) throw 0;
+      const sids=new Set(db.sessions.map(s=>s.sessionId)); let sAdd=0;
+      ses.forEach(s=>{ if(!s||!s.sessionId||sids.has(s.sessionId)) return;
+        const c=Object.assign({}, s); delete c.focusedDurationMin;
+        if(c.endType==="active") c.endType="cancelled";        // 가져온 진행 중 세션은 닫아둠
+        db.sessions.push(c); sids.add(c.sessionId); sAdd++; });
+      const ids=new Set(db.events.map(x=>x.id)); let eAdd=0;
+      evs.forEach(x=>{ if(!x||typeof x!=="object") return;
+        const ev=migrateEvent(x); ev.id=ev.id||uid(); ev.createdAt=ev.createdAt||new Date().toISOString();
+        if(!ids.has(ev.id)){ db.events.push(ev); ids.add(ev.id); eAdd++; } });
+      persist(); renderSet(); toast(`전환 기록 ${eAdd}건 · 세션 ${sAdd}개 불러왔어요`);
+    }catch(err){ toast("불러오지 못했어요. 이 앱에서 내보낸 JSON 파일인지 확인하세요."); }
+    e.target.value="";
+  };
+  rd.readAsText(e.target.files[0]);
+});
+
+/* ===== 탭 전환 ===== */
+function show(v){
+  ["log","list","stats","set"].forEach(k=>$("#view-"+k).classList.toggle("hide",k!==v));
+  document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("on",b.dataset.view===v));
+  if(v==="log") renderLog(); else $("#savebar").classList.add("hide");
+  if(v==="list") renderList();
+  if(v==="stats") renderStats();
+  if(v==="set") renderSet();
+  window.scrollTo(0,0);
+}
+document.querySelector("nav").addEventListener("click", e=>{
+  const b=e.target.closest("button"); if(!b) return;
+  if(b.dataset.view==="log" && mode==="form" && ctx && ctx.kind==="edit"){ mode="home"; ctx=null; }
+  if(b.dataset.view!=="log" && mode==="form" && ctx && ctx.kind==="edit"){ mode="home"; ctx=null; }
+  show(b.dataset.view);
+});
+
+renderLog();
+if("serviceWorker" in navigator && location.protocol==="https:"){
+  navigator.serviceWorker.register("sw.js", {scope:"./"}).catch(()=>{});
+}
+</script>
+</body>
+</html>
